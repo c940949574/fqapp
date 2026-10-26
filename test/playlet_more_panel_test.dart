@@ -198,7 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('player-more-panel')), findsNothing);
     expect(find.byKey(const ValueKey('player-rate-sheet')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('player-rate-sheet-4')));
+    await tester.tap(find.byKey(const ValueKey('player-rate-sheet-5')));
     await tester.pumpAndSettle();
     expect(player.calls, ['rate:2.0']);
     expect(await PlayerPreferences.loadPlaybackRate(), 2);
@@ -216,7 +216,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('player-rate-sheet-4')),
+        of: find.byKey(const ValueKey('player-rate-sheet-5')),
         matching: find.byIcon(Icons.check),
       ),
       findsOneWidget,

@@ -90,7 +90,7 @@
     "test/reader_paragraph_actions_test.dart": 964,
     "test/search_page_test.dart": 865,
     "test/series_detail_page_test.dart": 865,
-    "test/video_player_chrome_test.dart": 2140
+    "test/video_player_chrome_test.dart": 2154
   },
   "functions": {
     "lib/main.dart::_RootShellState.build": {

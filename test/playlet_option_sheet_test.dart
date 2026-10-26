@@ -6,9 +6,10 @@ import 'package:fqapp/widgets/player/playlet_option_sheet.dart';
 
 /// 底栏「倍速」「清晰度」直连的档位弹层。
 ///
-/// 官方依据：档位表含 2x/3x、无 1.75x（用户设备实测，
-/// `PlayerPreferences.playbackRates`）；选中档高亮 + 对勾、选中即收起
-/// （与横屏右侧档位面板 `PlayerSidePanelOptionList` 同语义）。
+/// 官方档位表是 0.75/1/1.25/1.5/2/3（用户设备实测），本地补了
+/// 1.75/2.25/2.5 三个中间档，共 9 档（`PlayerPreferences.playbackRates`）；
+/// 选中档高亮 + 对勾、选中即收起（与横屏右侧档位面板
+/// `PlayerSidePanelOptionList` 同语义）。
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -35,7 +36,17 @@ void main() {
   testWidgets('the rate sheet lists the official playrates', (tester) async {
     await mount(tester, (context) => showPlayletRateSheet(context, rate: 1));
     expect(find.byKey(const ValueKey('player-rate-sheet')), findsOneWidget);
-    for (final label in ['0.75x', '1x', '1.25x', '1.5x', '2x', '3x']) {
+    for (final label in [
+      '0.75x',
+      '1x',
+      '1.25x',
+      '1.5x',
+      '1.75x',
+      '2x',
+      '2.25x',
+      '2.5x',
+      '3x',
+    ]) {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('player-rate-sheet')),
@@ -45,7 +56,7 @@ void main() {
         reason: '缺少档位 $label',
       );
     }
-    expect(find.text('1.75x'), findsNothing, reason: '官方档位表里没有 1.75x');
+    expect(find.text('1.75x'), findsOneWidget, reason: '本地补的中间档要出现在表里');
     expect(find.text('1x（默认）'), findsNothing, reason: '档位不带（默认）后缀');
     expect(tester.takeException(), isNull);
   });
@@ -105,7 +116,7 @@ void main() {
       tester,
       (context) => showPlayletRateSheet(context, rate: 1, dark: false),
     );
-    final last = find.byKey(const ValueKey('player-rate-sheet-5'));
+    final last = find.byKey(const ValueKey('player-rate-sheet-8'));
     await tester.scrollUntilVisible(
       last,
       48,

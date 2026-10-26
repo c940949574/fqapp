@@ -126,7 +126,7 @@ enum PlayerSidePanelRoute { more, danmakuSettings, fontScale }
 
 /// 右侧面板里的标准行：48dp 高、图标 + 文案 + 尾注 + 箭头/开关。
 ///
-/// 只承载「进二级面板」和「带开关」两类行：倍速/清晰度的六档选项在
+/// 只承载「进二级面板」和「带开关」两类行：倍速/清晰度的档位选项在
 /// 240–420dp 的窄面板里铺不开，横屏改成底条直连的独立档位面板。
 class PlayerSidePanelRow extends StatelessWidget {
   const PlayerSidePanelRow({

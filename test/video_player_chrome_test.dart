@@ -76,7 +76,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-more-rate-row')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('player-rate-sheet')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('player-rate-sheet-4')));
+    await tester.tap(find.byKey(const ValueKey('player-rate-sheet-5')));
     await tester.pumpAndSettle();
     expect(player.rate, 2);
     expect(await PlayerPreferences.loadPlaybackRate(), 2);
@@ -1085,7 +1085,8 @@ void main() {
         final olderReply = Completer<void>();
         // 两支面板（通用兜底 / 短剧深色 V2）都在「视频设置」里留一行倍速
         // 入口（这套夹具的竖屏底栏不显示当前档），点开的是同一张档位弹层。
-        // 档位索引对应 `PlayerPreferences.playbackRates`（0.75/1/1.25/1.5/2/3）。
+        // 档位索引对应 `PlayerPreferences.playbackRates`
+        // （0.75/1/1.25/1.5/1.75/2/2.25/2.5/3）。
         Future<void> pickRate(int index) async {
           await tester.tap(find.byTooltip('更多'));
           await tester.pumpAndSettle();
@@ -1105,7 +1106,7 @@ void main() {
           await tester.pumpAndSettle();
           player.rateAcknowledgement = olderReply;
           // 2x：原生回执被按住，落库先行的效果要等旧回执不能让位。
-          await pickRate(4);
+          await pickRate(5);
           player.rateAcknowledgement = null;
           // 紧接着改 1.25x：旧回执后到也不能把新档位覆盖回去。
           await pickRate(2);
@@ -1687,22 +1688,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    // 底条倍速：点它直接开档位面板（六档全在列表里，不靠横滑）。
+    // 底条倍速：点它直接开档位面板（九档全在列表里，不靠横滑）。
+    // 361 高的矮窗装不下 9 行，先验可见段，末档靠滚动可达。
     await tester.tap(find.byKey(const ValueKey('landscape-rate')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byKey(const ValueKey('player-more-panel')), findsNothing);
     expect(find.byKey(const ValueKey('player-side-rates')), findsOneWidget);
-    for (final label in ['0.75x', '1x', '1.25x', '1.5x', '2x', '3x']) {
+    final ratePanel = find.byKey(const ValueKey('player-side-rates'));
+    for (final label in ['0.75x', '1x', '1.25x', '1.5x', '1.75x', '2x']) {
       expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('player-side-rates')),
-          matching: find.text(label),
-        ),
+        find.descendant(of: ratePanel, matching: find.text(label)),
         findsOneWidget,
         reason: '$label 档必须在档位面板里可见',
       );
     }
+    expect(tester.takeException(), isNull);
+    final rateScrollable = find.descendant(
+      of: ratePanel,
+      matching: find.byType(Scrollable),
+    );
+    final threeX = find.descendant(of: ratePanel, matching: find.text('3x'));
+    await tester.scrollUntilVisible(threeX, 80, scrollable: rateScrollable);
+    expect(threeX, findsOneWidget, reason: '矮窗装不下 9 档，末档必须滚得到');
+    // 滚回顶部，后面的选中档还在原位。
+    await tester.scrollUntilVisible(
+      find.descendant(of: ratePanel, matching: find.text('0.75x')),
+      -80,
+      scrollable: rateScrollable,
+    );
     expect(tester.takeException(), isNull);
     // 选中即收起并生效。
     await tester.tap(find.byKey(const ValueKey('player-side-rates-2')));

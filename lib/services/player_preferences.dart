@@ -40,9 +40,24 @@ class PlayerPreferences {
     }
   }
 
-  /// 官方 `player_control_panel_opt_v645.playrate_list` 的实测档位（用户设备
-  /// 官方截图 + 横屏子列表证据）：含 2x/3x，**没有 1.75x**。
-  static const playbackRates = <double>[0.75, 1, 1.25, 1.5, 2, 3];
+  /// 倍速档位。官方 `player_control_panel_opt_v645.playrate_list` 的实测档位
+  /// 是 0.75/1/1.25/1.5/2/3，中间留了空档；这里按用户要求在 1.5 与 2、2 与 3
+  /// 之间各补一档（1.75/2.25/2.5），共 9 档。
+  ///
+  /// 播放侧 `setPlaybackSpeed` 本身是连续量，任意值都能生效，补档只影响 UI；
+  /// 顺序即 UI 顺序，测试里的 `player-rate-sheet-<index>` 依赖它，改档必须
+  /// 同步改测试索引。
+  static const playbackRates = <double>[
+    0.75,
+    1,
+    1.25,
+    1.5,
+    1.75,
+    2,
+    2.25,
+    2.5,
+    3,
+  ];
 
   /// 视频解码器选择（issue #92）。
   ///

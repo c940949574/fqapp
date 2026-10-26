@@ -62,6 +62,9 @@ Future<T?> _showOptionSheet<T>(
 }) => showModalBottomSheet<T>(
   context: context,
   useSafeArea: true,
+  // 默认上限是 9/16 屏高，只够 6 行；倍速 9 档会被截到第 6 档之后，得先拖
+  // 一下才看得见 2.25x/2.5x/3x。放宽到 0.85 让档位表整屏给出（矮屏仍可滚）。
+  scrollControlDisabledMaxHeightRatio: 0.85,
   backgroundColor: dark ? const Color(0xFF1C1C1C) : const Color(0xFFFAFAFA),
   shape: RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(dark ? 12 : 16)),

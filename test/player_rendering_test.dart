@@ -134,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('player-rate-text')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('player-rate-sheet-4')));
+      await tester.tap(find.byKey(const ValueKey('player-rate-sheet-5')));
       await tester.pumpAndSettle();
       expect(player.calls, ['volume:1.0', 'rate:2.0']);
       expect(player.isPlaying, isFalse);
