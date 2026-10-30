@@ -42,7 +42,7 @@ class ReaderPlayerPill extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         key: ValueKey(weak ? 'reader-player-text' : 'reader-player-indicator'),
-        color: weak ? Colors.transparent : preset.playerBackground,
+        color: preset.playerBackground,
         borderRadius: BorderRadius.circular(height / 2),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

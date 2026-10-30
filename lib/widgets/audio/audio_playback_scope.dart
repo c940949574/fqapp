@@ -25,10 +25,17 @@ class AudioPlaybackScope extends StatefulWidget {
   ///
   /// 会话由 scope 持有、页面只是视图，所以不挂载页面也能播；阅读页留在
   /// 原处继续跟随与高亮。返回 false 表示入口不支持或起播失败。
+  /// 测试缝：拦截后台起播，避免测试真的挂载音频会话。
+  @visibleForTesting
+  static Future<bool> Function(BuildContext context, AudioPage request)?
+  startListeningOverride;
+
   static Future<bool> startListeningInBackground(
     BuildContext context,
     AudioPage request,
   ) async {
+    final override = startListeningOverride;
+    if (override != null) return override(context, request);
     final owner = context.findAncestorStateOfType<_AudioPlaybackScopeState>();
     if (owner == null) return false;
     return await owner.acquire(request) != null;

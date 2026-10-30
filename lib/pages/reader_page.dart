@@ -2776,7 +2776,11 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     var system = widget.localOnly;
     if (!system) {
       if (fromPage) {
-        await _openUpstreamListening(fromMs: fromMs, textId: textId);
+        await _openUpstreamListening(
+          fromMs: fromMs,
+          textId: textId,
+          openPage: false,
+        );
         return;
       }
       _openingListening = true;
@@ -2817,10 +2821,11 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
         if (!mounted || choice == null || chapterId != _chapter.itemId) return;
         if (choice == 1) {
           final anchor = _currentPageAnchor();
-          await _openUpstreamListening(
-            fromMs: anchor.startMs ?? fromMs,
-            textId: anchor.textId ?? textId,
-          );
+      await _openUpstreamListening(
+        fromMs: anchor.startMs ?? fromMs,
+        textId: anchor.textId ?? textId,
+        openPage: false,
+      );
           return;
         }
         system = choice == 2;
@@ -2897,10 +2902,15 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
   /// times. Reading never waits on that; the timeline is fetched here, once,
   /// because the user asked to listen from a paragraph. The fetch is bounded,
   /// and a failure still opens the page at the chapter start.
-  Future<void> _openUpstreamListening({int? fromMs, int? textId}) async {
+  Future<void> _openUpstreamListening({
+    int? fromMs,
+    int? textId,
+    bool openPage = true,
+  }) async {
     final paragraphAnchored = textId != null;
     if (_openingListening) return;
     _openingListening = true;
+    _showMessage('正在开始播放…');
     final chapter = _chapter;
     final chapterIndex = _index;
     try {
@@ -2932,30 +2942,42 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
       }
       if (!mounted) return;
       setState(() => _controlsVisible = false);
-      // 不跳听书页：会话由 AudioPlaybackScope 持有，阅读页留在原处跟随。
+      final request = AudioPage(
+        bookId: widget.bookId,
+        title: widget.title,
+        cover: widget.cover,
+        chapters: widget.chapters,
+        startIndex: chapterIndex,
+        resumeSession: false,
+        // 沿用正在听的那个音色：不传的话播放页只能挑默认音色，
+        // 「从本页播放」就会把真人讲书换成内置 TTS。
+        initialToneId: _listeningToneId(),
+        startPosition: paragraphAnchored
+            ? Duration(milliseconds: startMs ?? 0)
+            : null,
+        startParagraph: paragraph,
+        startFraction: paragraphAnchored && startMs == null
+            ? _readFraction(textId)
+            : null,
+        historyStore: widget.readerStore,
+      );
+      if (openPage) {
+        // 「听书」：跳转听书详情页。会话由 scope 持有，页面只是视图。
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => request));
+        return;
+      }
+      // 「从本页播放」：后台起播，阅读页留在原处跟随。
       final started = await AudioPlaybackScope.startListeningInBackground(
         context,
-        AudioPage(
-          bookId: widget.bookId,
-          title: widget.title,
-          cover: widget.cover,
-          chapters: widget.chapters,
-          startIndex: chapterIndex,
-          resumeSession: false,
-          // 沿用正在听的那个音色：不传的话播放页只能挑默认音色，
-          // 「从本页播放」就会把真人讲书换成内置 TTS。
-          initialToneId: _listeningToneId(),
-          startPosition: paragraphAnchored
-              ? Duration(milliseconds: startMs ?? 0)
-              : null,
-          startParagraph: paragraph,
-          startFraction: paragraphAnchored && startMs == null
-              ? _readFraction(textId)
-              : null,
-          historyStore: widget.readerStore,
-        ),
+        request,
       );
-      if (!started && mounted) _showMessage('无法开始播放，请检查网络');
+      if (!started && mounted) {
+        _showMessage('无法开始播放，请检查网络');
+      } else if (started && mounted) {
+        _showMessage('已开始播放，可从底部胶囊控制');
+      }
     } finally {
       _openingListening = false;
     }

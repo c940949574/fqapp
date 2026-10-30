@@ -136,13 +136,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('reader_sync_pill')), findsOneWidget);
 
+      final requests = <AudioPage>[];
+      AudioPlaybackScope.startListeningOverride = (context, request) async {
+        requests.add(request);
+        return true;
+      };
+      addTearDown(() => AudioPlaybackScope.startListeningOverride = null);
+
       await tester.tap(
         find.byKey(const ValueKey('reader_sync_listen_from_here')),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AudioPage), findsOneWidget);
-      final audio = tester.widget<AudioPage>(find.byType(AudioPage));
+      // 不再跳听书页：后台起播，参数走 override 捕获。
+      expect(find.byType(AudioPage), findsNothing);
+      expect(requests, hasLength(1));
+      final audio = requests.single;
       // 本页第一段带 <span start_time="4200">。
       expect(audio.startPosition, const Duration(milliseconds: 4200));
       expect(audio.initialToneId, 'narrator-7');

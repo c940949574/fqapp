@@ -43,7 +43,10 @@ class ReaderSyncPill extends StatelessWidget {
     final divider = foreground.withValues(alpha: foreground.a * 0.24);
     return Material(
       key: const ValueKey('reader_sync_pill'),
-      color: Colors.transparent,
+      // 深色背景上只有文字会糊掉：给胶囊一层实底 + 全圆角。
+      color: preset.playerBackground,
+      borderRadius: BorderRadius.circular(height / 2),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: height),
         child: Row(
