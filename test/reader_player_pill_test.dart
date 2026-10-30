@@ -56,7 +56,7 @@ void main() {
     expect(size.width, lessThan(130));
   });
 
-  testWidgets('weak mode keeps the label without a capsule background', (
+  testWidgets('weak mode keeps the label with the capsule background', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -79,7 +79,7 @@ void main() {
       tester
           .widget<Material>(find.byKey(const ValueKey('reader-player-text')))
           .color,
-      Colors.transparent,
+      ReaderThemePreset.light.playerBackground,
     );
   });
 
@@ -364,7 +364,7 @@ void main() {
                 ),
               )
               .color,
-          weak ? Colors.transparent : preset.playerBackground,
+          preset.playerBackground,
         );
       }
     });
