@@ -87,7 +87,7 @@ class CueIndex {
 
   /// 逗号细分使用的切分标点：逗号/顿号之外，句号、叹号、问号、省略号与
   /// 破折号同样点亮到边界；连续标点归前片（「——」「！？」不拆开）。
-  static final RegExp commaSplitAt = RegExp('[。！？…—]');
+  static final RegExp commaSplitAt = RegExp('[，、。！？…—]');
 
   /// 用 [layout] 的正文块顺序去匹配 [track] 的每一句。
   factory CueIndex.build({
