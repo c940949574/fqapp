@@ -136,6 +136,10 @@ class ReaderPage extends StatefulWidget {
 // Note: 菜单覆盖层与正文布局分离；见
 // .agents/notes/implemented/feature/2026-09-10-reader-interface.md
 class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
+  /// 高亮与翻页都按「耳朵听到」的时刻**提前** [readAheadMs] 取句：人眼对
+  /// 略微超前的视觉变化无感，滞后才有「字追不上声音」的拖沓感。
+  static const int readAheadMs = 70;
+
   late int _index;
   final ScrollController _scrollController = ScrollController();
   Timer? _saveTimer;
@@ -493,7 +497,9 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     // TTS 那条又不适用于音频朗读；这时按播放位置到字幕里查当前句。字幕是
     // 逐句连续的，位置也对得上。
     _ensureCueIndex(layout);
-    final span = _cueIndex.spanAtPositionMs(session.position.inMilliseconds);
+    final span = _cueIndex.spanAtPositionMs(
+      session.position.inMilliseconds + readAheadMs,
+    );
     if (span != null) return (span.start, span.end);
     // 逐句搜索兜底：句尾落到下一页这类跨页情形索引对不上，但正文里能找到。
     return _locateCue(layout, session.cue);
@@ -1058,7 +1064,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
       return true;
     }
     _ensureCueIndex(layout);
-    final positionMs = session.position.inMilliseconds;
+    final positionMs = session.position.inMilliseconds + readAheadMs;
     final span = _cueIndex.spanAtPositionMs(positionMs);
     // [_narrationRange] 是**显示**状态：某一拍没匹配上时故意留着不清，好让
     // 高亮晚半拍而不是整页变黑。它绝不能当导航锚点 —— 字幕第一句从 3 秒才

@@ -80,9 +80,10 @@ class CueIndex {
     r'[\s，。！？；：、“”‘’（）《》〈〉…—·,.!?;:"()\[\]{}]',
   );
 
-  /// 整段 cue 超过这个字数就按逗号细分成子片逐片高亮：几乎满页的段落整段
-  /// 一起亮，用户看不出进度；逗号是朗读自然的停顿粒度。
-  static const int commaSplitThreshold = 60;
+  /// cue 超过这个字数就按逗号细分成子片逐片高亮：番茄仙侠文一段常只有
+  /// 三五个短句（40 字上下），阈值太高会让「鎏金梁柱，灵气充沛…」这种
+  /// 段落整段一起亮；20 字能覆盖绝大多数短句段落，纯短语 cue 不受影响。
+  static const int commaSplitThreshold = 20;
 
   /// 逗号细分使用的切分标点（顿号与逗号同级，切在标点之后）。
   static final RegExp commaSplitAt = RegExp('[，、]');
