@@ -1117,13 +1117,14 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
   /// 对照表里查出这句的起点时间，再让播放器跳过去。听的是同一本书的别的章时，
   /// 播放器会先切到本章再按位置起播。
   /// 双击点落在章内哪个段落（拿它的 textId 供段落锚点寻址）。
+  ///
+  /// 直接在 [ReaderChapterLayout.blocks] 上找（与 [_paragraphAnchor] 同一套
+  /// 坐标系），不走 fragment 窗口匹配 —— 跨页段落的窗口判定有选错页的可能。
   int? _textIdAtOffset(int offset) {
     final layout = _chapterLayout;
     if (layout == null) return null;
-    for (final page in layout.pages) {
-      for (final f in page.fragments) {
-        if (offset >= f.start && offset < f.end) return f.block.textId;
-      }
+    for (final block in layout.blocks) {
+      if (offset >= block.start && offset < block.end) return block.textId;
     }
     return null;
   }
