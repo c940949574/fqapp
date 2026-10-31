@@ -394,14 +394,13 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     ListeningSession.instance.setFollowArmed(false);
   }
 
-  /// 手动翻页 = 接管播放：退出跟随并暂停朗读。
+  /// 手动翻页 = 接管跟随：退出自动跟随并亮出「原进度 / 从本页听」。
   ///
   /// 官方 `handlePlayWhenPageChange`（`AudioSyncReaderController.java:1242-1295`）
-  /// 在同章翻页时 `pausePlayer()`，然后亮出「原进度 / 从本页听」。换章
-  /// （目录、上一章/下一章）不走这里：官方那条分支只置 `C`，不暂停播放。
+  /// 在同章翻页时还会 `pausePlayer()`；这里**刻意不暂停** —— 边翻边听不打断，
+  /// 双击跳读随时可用；要回同步点点「原进度」。
   void _takeOverListening() {
     _pauseListenFollow();
-    AudioPlaybackScope.pauseIfPlaying(context, widget.bookId);
   }
 
   /// 朗读句高亮：与跟随翻页独立同步，跟随关闭时高亮仍可显示；切章、关闭
