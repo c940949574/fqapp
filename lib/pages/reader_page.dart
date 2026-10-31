@@ -1137,7 +1137,8 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     final offset = _marksScope?.geometry.chapterOffsetAt(globalPosition);
     if (offset == null) return;
     // 与「从本页播放」同一套寻址：段落锚点交给播放器的 /timepoints 解析，
-    // 不依赖字幕轨 —— 跨页/跨章时手里的字幕轨对不上本章正文。
+    // 不依赖字幕轨 —— 跨页/跨章时手里的字幕轨对不上本章正文。命中段落
+    // 从段首起播，与官方 App 一致。
     final tappedTextId = _textIdAtOffset(offset);
     final anchor = tappedTextId == null ? null : _paragraphAnchor(tappedTextId);
     if (anchor == null ||

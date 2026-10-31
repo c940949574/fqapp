@@ -44,9 +44,22 @@ class AudioPlaybackScope extends StatefulWidget {
   /// 段落锚点跳转（双击跳读用）：与「从本页播放」同一套寻址。
   static bool jumpToParagraph(BuildContext context, String chapterId,
       {required int? paraIndex, required int ordinal}) {
+    final override = jumpToParagraphOverride;
+    if (override != null) {
+      return override(chapterId, paraIndex: paraIndex, ordinal: ordinal);
+    }
     final owner = context.findAncestorStateOfType<_AudioPlaybackScopeState>();
     return owner?.jumpToParagraph(chapterId, paraIndex: paraIndex, ordinal: ordinal) ?? false;
   }
+
+  /// 测试缝：拦截段落锚点跳转（双击跳读用例）。
+  @visibleForTesting
+  static bool Function(
+    String chapterId, {
+    required int? paraIndex,
+    required int ordinal,
+  })?
+  jumpToParagraphOverride;
 
   /// 把正在进行的朗读跳到 [position]（阅读页双击跳读用）。
   ///
@@ -279,6 +292,10 @@ class _AudioPlaybackScopeState extends State<AudioPlaybackScope> {
     required int? paraIndex,
     required int ordinal,
   }) {
+    final override = AudioPlaybackScope.jumpToParagraphOverride;
+    if (override != null) {
+      return override(chapterId, paraIndex: paraIndex, ordinal: ordinal);
+    }
     final session = _session;
     if (session == null || session._closed) return false;
     final index = session._chapters.indexWhere((c) => c.itemId == chapterId);

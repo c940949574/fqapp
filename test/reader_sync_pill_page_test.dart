@@ -159,6 +159,87 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
     });
+
+    testWidgets('双击跨页超长段：两点都锚定到同一段落（官方段首行为）', (tester) async {
+      await _mount(tester);
+      _seed(
+        positionMs: 0,
+        track: _track(),
+        cue: _longParagraph().substring(0, 1200),
+      );
+      await tester.pumpAndSettle();
+      final paragraphJumps =
+          <({String chapterId, int? paraIndex, int ordinal})>[];
+      AudioPlaybackScope.jumpToParagraphOverride =
+          (chapterId, {required paraIndex, required ordinal}) {
+        paragraphJumps.add(
+          (chapterId: chapterId, paraIndex: paraIndex, ordinal: ordinal),
+        );
+        return true;
+      };
+      addTearDown(() => AudioPlaybackScope.jumpToParagraphOverride = null);
+      final surface = tester.widget<GestureDetector>(_surface);
+
+      // 第一页里点一次：锚定到该段（从段首起播，与官方一致）。
+      final p1 = tester.getCenter(
+        find.textContaining('清晨的风', findRichText: true).first,
+      );
+      surface.onDoubleTapDown!(TapDownDetails(globalPosition: p1));
+      await tester.pump();
+      expect(paragraphJumps, hasLength(1));
+      expect(paragraphJumps.single.chapterId, 'c1');
+      expect(paragraphJumps.single.paraIndex, isNotNull);
+
+      // 跨页：跟随机制把页面带到同段后半，再点一次——仍是同一段。
+      _seed(
+        positionMs: 36000,
+        track: _track(),
+        cue: _longParagraph().substring(1080, 1200),
+      );
+      await tester.pumpAndSettle();
+      expect(_pager(tester).pageIndex, greaterThanOrEqualTo(1));
+      final rect2 = tester.getRect(
+        find.textContaining('清晨的风', findRichText: true).first,
+      );
+      surface.onDoubleTapDown!(
+        TapDownDetails(
+          globalPosition: Offset(rect2.center.dx, rect2.top + rect2.height * 0.2),
+        ),
+      );
+      await tester.pump();
+
+      expect(paragraphJumps, hasLength(2));
+      expect(paragraphJumps[0].paraIndex, paragraphJumps[1].paraIndex);
+      expect(paragraphJumps[0].ordinal, paragraphJumps[1].ordinal);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('无字幕书双击回退段落锚点', (tester) async {
+      await _mount(tester);
+      _seed(positionMs: 0, track: const SubtitleTrack([]), cue: '');
+      await tester.pumpAndSettle();
+      final paragraphJumps = <({String chapterId, int? paraIndex, int ordinal})>[];
+      AudioPlaybackScope.jumpToParagraphOverride =
+          (chapterId, {required paraIndex, required ordinal}) {
+        paragraphJumps.add(
+          (chapterId: chapterId, paraIndex: paraIndex, ordinal: ordinal),
+        );
+        return true;
+      };
+      addTearDown(() => AudioPlaybackScope.jumpToParagraphOverride = null);
+
+      final surface = tester.widget<GestureDetector>(_surface);
+      final p1 = tester.getCenter(
+        find.textContaining('清晨的风', findRichText: true).first,
+      );
+      surface.onDoubleTapDown!(TapDownDetails(globalPosition: p1));
+      await tester.pump();
+
+      expect(paragraphJumps, hasLength(1));
+      expect(paragraphJumps.single.chapterId, 'c1');
+      expect(paragraphJumps.single.paraIndex, isNotNull);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
