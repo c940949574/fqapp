@@ -150,7 +150,7 @@ void main() {
     },
   );
 
-  testWidgets('a manual page turn pauses playback like the official reader', (
+  testWidgets('a manual page turn keeps playback running (user preference)', (
     tester,
   ) async {
     final app = await _mount(tester);
@@ -172,9 +172,10 @@ void main() {
     await tester.tapAt(Offset(rect.right - 16, rect.center.dy));
     await _flush(tester);
 
-    // 官方 handlePlayWhenPageChange：同章翻页 pausePlayer()，随后亮出同步胶囊。
-    expect(player.isPlaying, isFalse, reason: '手动翻页要暂停播放');
-    expect(ListeningSession.instance.playing, isFalse);
+    // 用户偏好覆盖官方 handlePlayWhenPageChange：翻页退出跟随、亮出同步
+    // 胶囊，但**不暂停** —— 边翻边听不打断，双击跳读随时可用。
+    expect(player.isPlaying, isTrue, reason: '手动翻页不应暂停播放');
+    expect(ListeningSession.instance.playing, isTrue);
     expect(find.byKey(const ValueKey('reader_sync_pill')), findsOneWidget);
   });
 }
