@@ -51,6 +51,52 @@ void main() {
     expect(index.spans[1].endMs, 6100);
   });
 
+  testWidgets('几乎满页的整段 cue 按逗号拆片，高亮跨越页面边界', (tester) async {
+    const sentence = '林舟沿着河堤往前走，水面上的雾气慢慢散开，远处的桥已经能看清轮廓，';
+    final paragraph = sentence * 14; // 14 句 ≈ 500 字：350x640 下跨多页
+    final layout = layoutWith([paragraph, '后来他开了电视。']);
+    final track = SubtitleTrack([
+      // 整段只有一条 cue（上游没给逐句字幕的极端情况）。
+      SubtitleCue(startMs: 0, text: paragraph),
+      SubtitleCue(startMs: 30000, text: '后来他开了电视。'),
+    ]);
+
+    final index = CueIndex.build(layout: layout, track: track);
+
+    // 前段拆成「逗号数 + 1」个子片（同一条 cue），第二段是另一条。
+    expect(index.spans.last.cueIndex, 1);
+    final pieces = index.spans.sublist(0, index.spans.length - 1);
+    expect(pieces.length, greaterThanOrEqualTo(10));
+    expect(pieces.every((s) => s.cueIndex == 0), isTrue);
+    // 首片从段首起，末片在第二段之前结束；时间与位置都单调。
+    expect(pieces.first.start, layout.blocks[1].start);
+    expect(pieces.last.end, lessThanOrEqualTo(layout.blocks[2].start));
+    for (var i = 1; i < pieces.length; i++) {
+      expect(pieces[i].startMs, greaterThanOrEqualTo(pieces[i - 1].startMs));
+      expect(pieces[i].start, greaterThanOrEqualTo(pieces[i - 1].end));
+    }
+    expect(pieces.first.startMs, 0);
+    expect(pieces.last.endMs, 30000);
+    // 非末片都以逗号收尾（逗号归前片）。
+    int charAt(int offset) {
+      for (final block in layout.blocks) {
+        if (offset >= block.start && offset < block.end) {
+          return block.text.codeUnitAt(offset - block.start);
+        }
+      }
+      return -1;
+    }
+    final comma = '，'.codeUnitAt(0);
+    for (var i = 0; i < pieces.length - 1; i++) {
+      expect(charAt(pieces[i].end - 1), comma);
+    }
+    // 跨页：首片与末片落在不同的页上。
+    expect(
+      layout.pageForOffset(pieces.last.start),
+      greaterThan(layout.pageForOffset(pieces.first.start)),
+    );
+  });
+
   testWidgets('同一句重复出现时游标只前进，不会跳回前面的段', (tester) async {
     final layout = layoutWith([
       '他说。然后是一段沉默。',

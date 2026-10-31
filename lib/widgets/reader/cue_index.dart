@@ -80,6 +80,13 @@ class CueIndex {
     r'[\s，。！？；：、“”‘’（）《》〈〉…—·,.!?;:"()\[\]{}]',
   );
 
+  /// 整段 cue 超过这个字数就按逗号细分成子片逐片高亮：几乎满页的段落整段
+  /// 一起亮，用户看不出进度；逗号是朗读自然的停顿粒度。
+  static const int commaSplitThreshold = 60;
+
+  /// 逗号细分使用的切分标点（顿号与逗号同级，切在标点之后）。
+  static final RegExp commaSplitAt = RegExp('[，、]');
+
   /// 用 [layout] 的正文块顺序去匹配 [track] 的每一句。
   factory CueIndex.build({
     required ReaderChapterLayout layout,
@@ -145,6 +152,45 @@ class CueIndex {
       // 单调性保险：命中必须在上一次之后，否则宁可丢掉这句。
       if (start < lastEnd) continue;
       lastEnd = end;
+      // 整段一条 cue 且字数超阈值：按逗号拆成子片逐片高亮。时间在片间线性
+      // 插值 —— 与 [CueSpan.spokenOffset] 的句内插值是同一个假设。剥噪匹配
+      // 拿不到正文里的精确片段（只有 stripped 坐标），那条路保持整句不拆。
+      if (at >= 0 && needle.length >= commaSplitThreshold) {
+        final pieces = <(int, int)>[]; // combined 下标 [from, to)
+        final segmentEnd = at + needle.length;
+        var pieceStart = at;
+        for (var k = at; k < segmentEnd; k++) {
+          if (commaSplitAt.hasMatch(combined[k])) {
+            pieces.add((pieceStart, k + 1));
+            pieceStart = k + 1;
+          }
+        }
+        if (pieceStart < segmentEnd) pieces.add((pieceStart, segmentEnd));
+        if (pieces.length > 1) {
+          final cueStartMs = track.cues[i].startMs;
+          final cueEndMs = track.endMsAt(i);
+          final total = pieces.fold<int>(0, (sum, p) => sum + p.$2 - p.$1);
+          final duration = (cueEndMs - cueStartMs).clamp(0, 1 << 30);
+          var elapsed = 0;
+          for (var p = 0; p < pieces.length; p++) {
+            final piece = pieces[p];
+            final pieceStartMs = cueStartMs + elapsed;
+            elapsed += duration * (piece.$2 - piece.$1) ~/ total;
+            spans.add(
+              CueSpan(
+                start: origin[piece.$1],
+                end: origin[piece.$2 - 1] + 1,
+                cueIndex: i,
+                startMs: pieceStartMs,
+                endMs: p == pieces.length - 1
+                    ? cueEndMs
+                    : cueStartMs + elapsed,
+              ),
+            );
+          }
+          continue;
+        }
+      }
       spans.add(
         CueSpan(
           start: start,
