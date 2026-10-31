@@ -35,6 +35,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Dart 侧门禁拆到 ubuntu 与 Windows 构建并行：analyze/测试红了 5 分钟内
+  # 可见，不必等 Rust 与 MSVC 编完。桌面相关 widget 测试不碰 Windows 通道
+  # （桌面 API 全部走 desktop_platform 的通道桩），ubuntu 能跑。
+  dart-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Analyze application
+        run: flutter analyze --no-pub
+      - name: Test layout and playback lifecycle
+        run: >-
+          flutter test --no-pub
+          test/desktop_detail_layout_test.dart test/desktop_platform_test.dart
+          test/desktop_video_layout_test.dart test/player_page_test.dart
+          test/book_open_entry_test.dart
+
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -52,16 +78,30 @@ jobs:
           cache: true
       - name: Resolve dependencies on the official unmodified SDK
         run: flutter pub get
-      - name: Analyze application
-        run: flutter analyze --no-pub
-      # 行数预算门禁在 android-apk.yml 的 dart-gate 里跑：它只读源码，不依赖
-      # Windows 工具链，放在这里只会排在联网装 ffmpeg 之后。
-      - name: Test layout and playback lifecycle
-        run: >-
-          flutter test --no-pub
-          test/desktop_detail_layout_test.dart test/desktop_platform_test.dart
-          test/desktop_video_layout_test.dart test/player_page_test.dart
-          test/book_open_entry_test.dart
+      # analyze/测试已拆到 ubuntu 的 dart-gate 并行跑；行数预算门禁在
+      # android-apk.yml 的 dart-gate 里（只读源码，不依赖 Windows 工具链）。
+      # Rust 增量编译缓存：lib/** 一改 bundle-cache 必 miss，此时 cargo
+      # target 命中能让 Rust 只重编真正变化的 crate，而不是从零全量。
+      - name: Restore cargo build cache
+        if: steps.bundle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~\.cargo\registry
+            ~\.cargo\git
+            rust\target
+          key: windows-cargo-rust1.99.1-${{ runner.arch }}-v1-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            windows-cargo-rust1.99.1-${{ runner.arch }}-v1-
+      - name: Save cargo build cache
+        if: steps.bundle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~\.cargo\registry
+            ~\.cargo\git
+            rust\target
+          key: windows-cargo-rust1.99.1-${{ runner.arch }}-v1-${{ github.run_id }}
       - name: Restore matching release binaries
         id: bundle-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
