@@ -100,9 +100,16 @@ class AudioPlaybackScope extends StatefulWidget {
     String chapterId,
     Duration position,
   ) {
+    final override = jumpToChapterOverride;
+    if (override != null) return override(chapterId, position);
     final owner = context.findAncestorStateOfType<_AudioPlaybackScopeState>();
     return owner?.jumpToChapter(chapterId, position) ?? false;
   }
+
+  /// 测试缝：拦截句级/段首毫秒跳转（双击跳读用例）。
+  @visibleForTesting
+  static bool Function(String chapterId, Duration position)?
+  jumpToChapterOverride;
 
   /// 取指定章节的逐句字幕（阅读页跨章双击跳读用）。
   ///

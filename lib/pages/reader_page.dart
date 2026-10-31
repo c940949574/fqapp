@@ -1116,15 +1116,23 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
   /// 处理行内折行、标题占位这些偏移修正，没必要再实现一遍；拿到字符下标后去
   /// 对照表里查出这句的起点时间，再让播放器跳过去。听的是同一本书的别的章时，
   /// 播放器会先切到本章再按位置起播。
-  /// 双击点落在章内哪个段落（拿它的 textId 供段落锚点寻址）。
-  ///
-  /// 直接在 [ReaderChapterLayout.blocks] 上找（与 [_paragraphAnchor] 同一套
-  /// 坐标系），不走 fragment 窗口匹配 —— 跨页段落的窗口判定有选错页的可能。
+  /// 双击点的段落 textId：在 [ReaderChapterLayout.blocks] 上直查（与
+  /// [_paragraphAnchor] 同一坐标系，避免 fragment 窗口选错页）。
   int? _textIdAtOffset(int offset) {
     final layout = _chapterLayout;
     if (layout == null) return null;
     for (final block in layout.blocks) {
       if (offset >= block.start && offset < block.end) return block.textId;
+    }
+    return null;
+  }
+
+  /// 按 textId 找回正文块（段落字符范围用）。
+  ReaderContentBlock? _blockByTextId(int textId) {
+    final layout = _chapterLayout;
+    if (layout == null) return null;
+    for (final block in layout.blocks) {
+      if (block.textId == textId) return block;
     }
     return null;
   }
@@ -1143,23 +1151,50 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     }
     final offset = _marksScope?.geometry.chapterOffsetAt(globalPosition);
     if (offset == null) return;
-    // 与「从本页播放」同一套寻址：段落锚点交给播放器的 /timepoints 解析，
-    // 不依赖字幕轨 —— 跨页/跨章时手里的字幕轨对不上本章正文。命中段落
-    // 从段首起播，与官方 App 一致。
+    // 双击 = 跳到点中段落的段首（官方行为）。段首毫秒按可靠性取：
+    // ① 段落 `<span start_time>`；② 字幕轨里本段的第一个子片（升级版
+    //    官方音轨没有 /timepoints，只有字幕 —— 只走段落锚会落回章首）；
+    // ③ /timepoints 段落锚。
     final tappedTextId = _textIdAtOffset(offset);
-    final anchor = tappedTextId == null ? null : _paragraphAnchor(tappedTextId);
-    if (anchor == null ||
-        anchor.paraIndex == null ||
-        !AudioPlaybackScope.jumpToParagraph(
-          context,
-          _chapter.itemId,
-          paraIndex: anchor.paraIndex,
-          ordinal: anchor.ordinal,
-        )) {
+    final tappedBlock = tappedTextId == null ? null : _blockByTextId(tappedTextId);
+    if (tappedBlock == null) {
       _showMessage('这一点没有对应音频，稍后再试');
       return;
     }
-    HapticFeedback.selectionClick();
+    final anchor = tappedTextId == null ? null : _paragraphAnchor(tappedTextId);
+    final chapterId = _chapter.itemId;
+    if (anchor != null &&
+        anchor.startMs != null &&
+        AudioPlaybackScope.jumpToChapter(
+          context,
+          chapterId,
+          Duration(milliseconds: anchor.startMs!),
+        )) {
+      HapticFeedback.selectionClick();
+      return;
+    }
+    _ensureCueIndex(layout);
+    for (final s in _cueIndex.spans) {
+      if (s.start >= tappedBlock.start && s.start < tappedBlock.end) {
+        if (AudioPlaybackScope.jumpToChapter(context, chapterId, s.startPosition)) {
+          HapticFeedback.selectionClick();
+          return;
+        }
+        break;
+      }
+    }
+    if (anchor != null &&
+        anchor.paraIndex != null &&
+        AudioPlaybackScope.jumpToParagraph(
+          context,
+          chapterId,
+          paraIndex: anchor.paraIndex,
+          ordinal: anchor.ordinal,
+        )) {
+      HapticFeedback.selectionClick();
+      return;
+    }
+    _showMessage('这一点没有对应音频，稍后再试');
   }
 
   Future<void> _onParagraphLongPress(

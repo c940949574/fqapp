@@ -160,7 +160,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('双击跨页超长段：两点都锚定到同一段落（官方段首行为）', (tester) async {
+    testWidgets('双击跨页超长段：两点都定位到同一段的段首毫秒', (tester) async {
       await _mount(tester);
       _seed(
         positionMs: 0,
@@ -168,8 +168,13 @@ void main() {
         cue: _longParagraph().substring(0, 1200),
       );
       await tester.pumpAndSettle();
+      final jumps = <(String, Duration)>[];
       final paragraphJumps =
           <({String chapterId, int? paraIndex, int ordinal})>[];
+      AudioPlaybackScope.jumpToChapterOverride = (chapterId, position) {
+        jumps.add((chapterId, position));
+        return true;
+      };
       AudioPlaybackScope.jumpToParagraphOverride =
           (chapterId, {required paraIndex, required ordinal}) {
         paragraphJumps.add(
@@ -177,20 +182,24 @@ void main() {
         );
         return true;
       };
-      addTearDown(() => AudioPlaybackScope.jumpToParagraphOverride = null);
+      addTearDown(() {
+        AudioPlaybackScope.jumpToChapterOverride = null;
+        AudioPlaybackScope.jumpToParagraphOverride = null;
+      });
       final surface = tester.widget<GestureDetector>(_surface);
 
-      // 第一页里点一次：锚定到该段（从段首起播，与官方一致）。
+      // 第一页里点一次：段首毫秒取字幕轨里本段的第一个子片（cue 从 0ms 起）。
       final p1 = tester.getCenter(
         find.textContaining('清晨的风', findRichText: true).first,
       );
       surface.onDoubleTapDown!(TapDownDetails(globalPosition: p1));
       await tester.pump();
-      expect(paragraphJumps, hasLength(1));
-      expect(paragraphJumps.single.chapterId, 'c1');
-      expect(paragraphJumps.single.paraIndex, isNotNull);
+      expect(jumps, hasLength(1));
+      expect(jumps.single.$1, 'c1');
+      expect(jumps.single.$2, Duration.zero);
+      expect(paragraphJumps, isEmpty);
 
-      // 跨页：跟随机制把页面带到同段后半，再点一次——仍是同一段。
+      // 跨页：跟随机制把页面带到同段后半，再点一次——仍是同一段的段首。
       _seed(
         positionMs: 36000,
         track: _track(),
@@ -208,9 +217,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(paragraphJumps, hasLength(2));
-      expect(paragraphJumps[0].paraIndex, paragraphJumps[1].paraIndex);
-      expect(paragraphJumps[0].ordinal, paragraphJumps[1].ordinal);
+      expect(jumps, hasLength(2));
+      expect(jumps.last.$1, 'c1');
+      expect(jumps.last.$2, Duration.zero);
+      expect(paragraphJumps, isEmpty);
       expect(tester.takeException(), isNull);
     });
 
