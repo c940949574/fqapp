@@ -85,8 +85,9 @@ class CueIndex {
   /// 段落整段一起亮；20 字能覆盖绝大多数短句段落，纯短语 cue 不受影响。
   static const int commaSplitThreshold = 20;
 
-  /// 逗号细分使用的切分标点（顿号与逗号同级，切在标点之后）。
-  static final RegExp commaSplitAt = RegExp('[，、]');
+  /// 逗号细分使用的切分标点：逗号/顿号之外，句号、叹号、问号、省略号与
+  /// 破折号同样点亮到边界；连续标点归前片（「——」「！？」不拆开）。
+  static final RegExp commaSplitAt = RegExp('[，、。！？…—]');
 
   /// 用 [layout] 的正文块顺序去匹配 [track] 的每一句。
   factory CueIndex.build({
@@ -162,8 +163,14 @@ class CueIndex {
         var pieceStart = at;
         for (var k = at; k < segmentEnd; k++) {
           if (commaSplitAt.hasMatch(combined[k])) {
-            pieces.add((pieceStart, k + 1));
-            pieceStart = k + 1;
+            var e = k + 1;
+            // 连续标点（——、！？）整组归前片，避免破折号被劈成两半。
+            while (e < segmentEnd && commaSplitAt.hasMatch(combined[e])) {
+              e++;
+            }
+            pieces.add((pieceStart, e));
+            pieceStart = e;
+            k = e - 1;
           }
         }
         if (pieceStart < segmentEnd) pieces.add((pieceStart, segmentEnd));
