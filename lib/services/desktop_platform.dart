@@ -20,6 +20,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../widgets/desktop_login.dart';
 import 'desktop_media.dart';
+import 'gpt_sovits_tts.dart';
 import 'app_log.dart';
 import 'platform_channel.dart';
 
@@ -58,6 +59,11 @@ class DesktopPlatform with WindowListener {
   final _events = <String, StreamController<dynamic>>{};
   final _players = <int, _DesktopPlayer>{};
   final _tts = FlutterTts();
+
+  /// 当前系统朗读引擎：'windows'（SAPI）或 [GptSovitsTts.engineId]（本地音色克隆）。
+  String _ttsEngine = 'windows';
+  Player? _gsvPlayer;
+  String? _gsvUtterance;
   SMTCWindows? _smtc;
   String? _utterance;
   int _nextId = 1000000;
@@ -319,6 +325,10 @@ class DesktopPlatform with WindowListener {
           'defaultEngine': 'windows',
           'engines': [
             {'package': 'windows', 'label': 'Windows 默认语音'},
+            {
+              'package': GptSovitsTts.engineId,
+              'label': GptSovitsTts.engineLabel,
+            },
             if (voices is List)
               for (final voice in voices)
                 if (voice is Map && voice['name'] is String)
@@ -332,9 +342,18 @@ class DesktopPlatform with WindowListener {
           ],
         };
       case 'initialize':
+        final engine = args['engine'];
+        _ttsEngine = engine == GptSovitsTts.engineId
+            ? GptSovitsTts.engineId
+            : 'windows';
+        if (_ttsEngine == GptSovitsTts.engineId) {
+          await GptSovitsTts.reload();
+          await _stopGsv();
+          // GPT-SoVITS 整段合成，句长上限给宽一点；速率由 steps/cfg 控制。
+          return 300;
+        }
         await _tts.stop();
         _utterance = null;
-        final engine = args['engine'];
         if (engine is String && engine.startsWith('{')) {
           final voice = (jsonDecode(engine) as Map).cast<String, String>();
           await _tts.setVoice(voice);
@@ -349,6 +368,10 @@ class DesktopPlatform with WindowListener {
         );
         return 300;
       case 'speak':
+        if (_ttsEngine == GptSovitsTts.engineId) {
+          await _speakGsv(args['id'] as String, args['text'] as String);
+          return null;
+        }
         _utterance = args['id'] as String;
         final result = await _tts.speak(args['text'] as String);
         if (result == 0) {
@@ -362,12 +385,55 @@ class DesktopPlatform with WindowListener {
       case 'shutdown':
         _utterance = null;
         await _tts.stop();
+        await _stopGsv();
         return null;
       case 'settings':
+        if (_ttsEngine == GptSovitsTts.engineId) {
+          // 打开音色配置（JSON），用户可换参考音频/语种/模型。
+          await Process.run('notepad.exe', [GptSovitsTts.configFile.path]);
+          return null;
+        }
         await Process.run('explorer.exe', ['ms-settings:speech']);
         return null;
     }
     throw MissingPluginException(method);
+  }
+
+  /// 用 GPT-SoVITS 合成并播放：整段出 WAV 再播，播完发 done。
+  ///
+  /// 合成约 1.8× 实时（RTX 4070），句与句之间会有可见延迟 —— 听书场景适合
+  /// 预合成；这里按 [SystemTts] 协议逐句合成，够用。
+  Future<void> _speakGsv(String id, String text) async {
+    await _stopGsv();
+    _gsvUtterance = id;
+    try {
+      final out = '${Directory.systemTemp.path}\\fqapp_gsv_$id.wav';
+      await GptSovitsTts.synthesize(text: text, outWav: out);
+      if (_gsvUtterance != id) return; // 已被 stop 打断
+      await _ensureGsvPlayer().open(Media(out), play: true);
+    } catch (_) {
+      if (_gsvUtterance == id) {
+        _gsvUtterance = null;
+        _emit('fqapp/system_tts_events', {'type': 'error', 'id': id});
+      }
+    }
+  }
+
+  /// 播放器只建一次，完成事件统一从这里发，避免重复订阅。
+  Player _ensureGsvPlayer() {
+    return _gsvPlayer ??= Player()
+      ..stream.completed.listen((finished) {
+        final id = _gsvUtterance;
+        if (finished && id != null) {
+          _gsvUtterance = null;
+          _emit('fqapp/system_tts_events', {'type': 'done', 'id': id});
+        }
+      });
+  }
+
+  Future<void> _stopGsv() async {
+    _gsvUtterance = null;
+    await _gsvPlayer?.stop();
   }
 
   Future<dynamic> _reader(String method, Map args) async {
