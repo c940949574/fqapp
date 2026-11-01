@@ -30,6 +30,10 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
   double _volume = 1;
   double _rate = 1;
   double? _scrub;
+
+  /// 手动画面旋转档（0–3，顺时针 90°/步）。竖片在横屏全屏、横片在竖置
+  /// 显示器里转 90° 就能铺满；落盘在 [PlayerPreferences.loadVideoRotation]。
+  int _quarterTurns = 0;
   Timer? _hide;
   final _position = ValueNotifier<Duration>(Duration.zero);
   StreamSubscription<Duration>? _positionSub;
@@ -63,6 +67,11 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
     unawaited(
       PlayerPreferences.loadPlaybackRate().then((value) {
         if (mounted) setState(() => _rate = value);
+      }),
+    );
+    unawaited(
+      PlayerPreferences.loadVideoRotation().then((value) {
+        if (mounted && value != 0) setState(() => _quarterTurns = value);
       }),
     );
     _volume = c.defaultMute ? 0 : 1;
@@ -139,6 +148,13 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
 
   Future<void> _full() =>
       DesktopPlatform.instance.setFullscreen(!DesktopPlatform.fullscreen.value);
+
+  /// 旋转画面：0° → 90° → 180° → 270° 循环（顺时针），落盘记住选择。
+  void _cycleRotation() {
+    setState(() => _quarterTurns = (_quarterTurns + 1) % 4);
+    unawaited(PlayerPreferences.saveVideoRotation(_quarterTurns));
+    _show();
+  }
 
   /// 画面区滚轮：宿主接了切剧回调才响应，纵向滚动转 ±1（下滚下一条）。
   /// 监听层只盖画面区，停靠面板的选集网格不在其命中路径内，照常自滚。
@@ -465,9 +481,22 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
                 // 全屏时运输条浮在画面上（官方全屏播放器同型）：非全屏仍占
                 // 固定 112 的高度，画面几何不随控件显隐跳动；全屏若也占位，
                 // 画面会被顶上去，底下留一条黑条。
+                // 画面外盒跟真实片源比例（未知 16:9 兜底）。外盒写死 16:9 时，
+                // 竖形窗口 / 竖屏全屏会被压成一条横带（宽 × 宽·9/16），竖片
+                // 只能缩在带里、上下大片黑边；跟片源比例后画面高度顶满可用区。
+                // 手动旋转 90°/270° 时视觉宽高互换，比例取倒数。
+                final sourceRatio =
+                    c.player != null &&
+                        c.player!.videoWidth > 0 &&
+                        c.player!.videoHeight > 0
+                    ? c.player!.videoWidth / c.player!.videoHeight
+                    : 16 / 9;
+                final aspect = _quarterTurns.isOdd
+                    ? 1 / sourceRatio
+                    : sourceRatio;
                 final picture = Center(
                   child: AspectRatio(
-                    aspectRatio: 16 / 9,
+                    aspectRatio: aspect,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: _toggle,
@@ -477,14 +506,11 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
                         children: [
                           Center(
                             child: AspectRatio(
-                              aspectRatio:
-                                  c.player != null &&
-                                      c.player!.videoWidth > 0 &&
-                                      c.player!.videoHeight > 0
-                                  ? c.player!.videoWidth /
-                                        c.player!.videoHeight
-                                  : 16 / 9,
-                              child: c.child,
+                              aspectRatio: aspect,
+                              child: RotatedBox(
+                                quarterTurns: _quarterTurns,
+                                child: c.child,
+                              ),
                             ),
                           ),
                           Positioned.fill(
@@ -773,6 +799,13 @@ class _DesktopVideoChromeState extends State<DesktopVideoChrome> {
                                       onPressed: _showCatalog,
                                       icon: const Icon(
                                         Icons.playlist_play,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: '旋转画面（0°/90°/180°/270°）',
+                                      onPressed: _cycleRotation,
+                                      icon: const Icon(
+                                        Icons.screen_rotation_alt,
                                       ),
                                     ),
                                     IconButton(

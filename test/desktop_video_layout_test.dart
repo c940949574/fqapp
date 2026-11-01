@@ -66,6 +66,155 @@ void main() {
     }
   }
 
+  // 竖形窗口 / 竖屏全屏：外盒若写死 16:9，画面会被压成一条横带
+  // （宽 × 宽·9/16），竖片缩在带里上下大片黑边（PC 全屏问题）。
+  // 这里断言画面高度顶满可用区，而不只是比例正确。
+  testWidgets('portrait frame fills a tall window vertically', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(688, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    SharedPreferences.setMockInitialValues({});
+    final player = _PortraitPlayer();
+    addTearDown(() async {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await player.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VideoPlayerChrome(
+          player: player,
+          title: '测试剧集',
+          seriesTitle: '测试作品',
+          episodes: [
+            for (var i = 0; i < 10; i++)
+              Chapter(itemId: '$i', title: '第 $i 集', volumeName: ''),
+          ],
+          currentIndex: 0,
+          duration: const Duration(minutes: 2),
+          playing: false,
+          enabled: false,
+          onSelectEpisode: (_) async {},
+          onError: (_) {},
+          child: const ColoredBox(
+            key: Key('portrait-frame'),
+            color: Colors.red,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final picture = tester.getSize(find.byKey(const Key('portrait-frame')));
+    expect(picture.width / picture.height, closeTo(9 / 16, .001));
+    // 非全屏可用高 = 1100 - 顶栏 48 - 运输条 112 = 940。
+    expect(picture.height, closeTo(940, 1.0));
+    await tester.pumpWidget(const SizedBox.shrink());
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('portrait frame fills a tall fullscreen vertically', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    DesktopPlatform.fullscreen.value = true;
+    tester.view.physicalSize = const Size(688, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    SharedPreferences.setMockInitialValues({});
+    final player = _PortraitPlayer();
+    addTearDown(() async {
+      DesktopPlatform.fullscreen.value = false;
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await player.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VideoPlayerChrome(
+          player: player,
+          title: '测试剧集',
+          seriesTitle: '测试作品',
+          episodes: [
+            for (var i = 0; i < 10; i++)
+              Chapter(itemId: '$i', title: '第 $i 集', volumeName: ''),
+          ],
+          currentIndex: 0,
+          duration: const Duration(minutes: 2),
+          playing: false,
+          enabled: false,
+          onSelectEpisode: (_) async {},
+          onError: (_) {},
+          child: const ColoredBox(
+            key: Key('portrait-frame'),
+            color: Colors.red,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final picture = tester.getSize(find.byKey(const Key('portrait-frame')));
+    expect(picture.width / picture.height, closeTo(9 / 16, .001));
+    // 全屏没有顶栏 / 运输条占位：画面顶满 1100。
+    expect(picture.height, closeTo(1100, 1.0));
+    await tester.pumpWidget(const SizedBox.shrink());
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('rotation button turns a portrait frame into a wide one', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(688, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    SharedPreferences.setMockInitialValues({});
+    final player = _PortraitPlayer();
+    addTearDown(() async {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await player.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VideoPlayerChrome(
+          player: player,
+          title: '测试剧集',
+          seriesTitle: '测试作品',
+          episodes: [
+            for (var i = 0; i < 10; i++)
+              Chapter(itemId: '$i', title: '第 $i 集', volumeName: ''),
+          ],
+          currentIndex: 0,
+          duration: const Duration(minutes: 2),
+          playing: false,
+          enabled: false,
+          onSelectEpisode: (_) async {},
+          onError: (_) {},
+          child: const ColoredBox(
+            key: Key('portrait-frame'),
+            color: Colors.red,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('旋转画面（0°/90°/180°/270°）'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // 转 90° 后视觉盒变成 16:9：宽度铺满 688，高 387。
+    final rotated = tester.getSize(find.byType(RotatedBox).first);
+    expect(rotated.width, closeTo(688, 1.0));
+    expect(rotated.height, closeTo(387, 1.0));
+    // 未旋转的片源盒仍是 9:16（宽高已互换）。
+    final picture = tester.getSize(find.byKey(const Key('portrait-frame')));
+    expect(picture.width / picture.height, closeTo(9 / 16, .001));
+    await tester.pumpWidget(const SizedBox.shrink());
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   Future<void> pumpChrome(
     WidgetTester tester, {
     required Size size,

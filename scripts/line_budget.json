@@ -14,7 +14,6 @@
     "lib/pages/home_provider.dart": 1381,
     "lib/pages/log_viewer_page.dart": 757,
     "lib/pages/player_page.dart": 1995,
-    "lib/pages/rank_page.dart": 543,
     "lib/pages/search_page.dart": 1115,
     "lib/pages/series_detail_page.dart": 726,
     "lib/pages/settings_page.dart": 808,
@@ -35,7 +34,7 @@
     "lib/widgets/audio/audio_control_rows.dart": 642,
     "lib/widgets/audio/audio_sections.dart": 1753,
     "lib/widgets/bookshelf_card.dart": 1003,
-    "lib/widgets/desktop_video_chrome.dart": 885,
+    "lib/widgets/desktop_video_chrome.dart": 918,
     "lib/widgets/player/player_split_panel.dart": 619,
     "lib/widgets/player/playlet_danmaku_layer.dart": 569,
     "lib/widgets/player/story_player_panel.dart": 1082,
@@ -62,6 +61,7 @@
     "test/chapter_cache_sheet_test.dart": 553,
     "test/comic_reader_page_test.dart": 859,
     "test/desktop_semantics_update_test.dart": 844,
+    "test/desktop_video_layout_test.dart": 565,
     "test/detail_page_test.dart": 740,
     "test/discovery_pages_test.dart": 690,
     "test/drama_downloader_test.dart": 563,
@@ -191,8 +191,8 @@
       "symbol": "Widget build(BuildContext context) {"
     },
     "lib/pages/rank_page.dart::_RankRow.build": {
-      "line": 435,
-      "lines": 107,
+      "line": 399,
+      "lines": 88,
       "symbol": "Widget build(BuildContext context) {"
     },
     "lib/pages/search_page.dart::_SearchPageState.build": {
@@ -276,8 +276,8 @@
       "symbol": "Widget build(BuildContext context) => Overlay.wrap("
     },
     "lib/widgets/desktop_video_chrome.dart::_DesktopVideoChromeState.build": {
-      "line": 442,
-      "lines": 445,
+      "line": 458,
+      "lines": 460,
       "symbol": "Widget build(BuildContext context) => Theme("
     },
     "lib/widgets/detail/detail_comment_tile.dart::_DetailCommentTileState.build": {

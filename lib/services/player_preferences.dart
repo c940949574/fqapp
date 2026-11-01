@@ -44,6 +44,24 @@ class PlayerPreferences {
   /// 官方截图 + 横屏子列表证据）：含 2x/3x，**没有 1.75x**。
   static const playbackRates = <double>[0.75, 1, 1.25, 1.5, 2, 3];
 
+  /// 手动画面旋转档：0 = 不转，1 = 90°，2 = 180°，3 = 270°（顺时针）。
+  ///
+  /// 桌面端用（`DesktopVideoChrome` 运输条「旋转画面」按钮）：竖片在横屏
+  /// 全屏、横片在竖置显示器里都可以转 90° 铺满。与元数据自动纠正
+  /// （`NativePlayer.videoRotationCorrection`）是两回事，互不覆盖。
+  static const _videoRotationKey = 'player_video_rotation';
+
+  static Future<int> loadVideoRotation() async {
+    final preferences = await SharedPreferences.getInstance();
+    final saved = preferences.getInt(_videoRotationKey);
+    return (saved ?? 0).clamp(0, 3);
+  }
+
+  static Future<void> saveVideoRotation(int quarterTurns) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setInt(_videoRotationKey, quarterTurns.clamp(0, 3));
+  }
+
   /// 视频解码器选择（issue #92）。
   ///
   /// 联发科部分芯片在 Android 15 上播 HEVC + 加密内容时硬解黑屏/卡帧，且
